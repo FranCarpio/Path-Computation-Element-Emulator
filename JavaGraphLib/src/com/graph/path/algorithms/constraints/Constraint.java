@@ -25,4 +25,6 @@ public abstract class Constraint {
 	public abstract VertexElement getDestination();
 	
 	public abstract double getBw();
+	
+	public abstract double getMaxDelay();
 }

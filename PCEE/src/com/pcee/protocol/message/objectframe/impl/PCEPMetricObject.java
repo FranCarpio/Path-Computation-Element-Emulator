@@ -240,6 +240,13 @@ public class PCEPMetricObject implements PCEPObjectFrame {
 	public String getMetricValueBinaryString() {
 		return this.metricValue+"";
 	}
+	
+	/**
+	 * delayValue
+	 */
+	public float getDelayFloatValue(){
+		return Float.intBitsToFloat(Integer.parseInt(metricValue, 2));
+	}
 
 	/**
 	 * @param binaryString

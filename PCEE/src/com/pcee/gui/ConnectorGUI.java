@@ -20,15 +20,20 @@ package com.pcee.gui;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.IOException;
+
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
+import javax.swing.text.DefaultCaret;
+
 import com.pcee.architecture.ModuleEnum;
 import com.pcee.architecture.ModuleManagement;
 import com.pcee.logger.Logger;
 import com.pcee.protocol.message.PCEPMessage;
 import com.pcee.protocol.message.PCEPMessageFactory;
 import com.pcee.protocol.message.objectframe.PCEPObjectFrameFactory;
+import com.pcee.protocol.message.objectframe.impl.PCEPBandwidthObject;
 import com.pcee.protocol.message.objectframe.impl.PCEPEndPointsObject;
+import com.pcee.protocol.message.objectframe.impl.PCEPMetricObject;
 import com.pcee.protocol.message.objectframe.impl.PCEPRequestParametersObject;
 import com.pcee.protocol.message.objectframe.impl.erosubobjects.PCEPAddress;
 import com.pcee.protocol.request.PCEPRequestFrame;
@@ -37,6 +42,7 @@ import com.pcee.protocol.request.PCEPRequestFrameFactory;
 /**GUI for the PCE Client
  * 
  * @author Marek Drogon
+ * @author Fran Carpio
  */
 public class ConnectorGUI extends JFrame implements ActionListener {
 
@@ -44,6 +50,7 @@ public class ConnectorGUI extends JFrame implements ActionListener {
 
 	ModuleManagement lm;
 	int port = 4189;
+	static long timeStart;
 
 	GridBagLayout gridbag;
 	Dimension buttonDimension, labelDimension, textFieldDimension, panelDimension;
@@ -51,7 +58,7 @@ public class ConnectorGUI extends JFrame implements ActionListener {
 	JFrame windowFrame;
 	JPanel windowPanel, introPanel, inputPanel, openMessagePanel, keepAliveMessagePanel, requestMessagePanel, textAreaPanel;
 
-	JTextField serverAddressTextField, serverPortTextField, keepAliveTextField, deadTimerTextField, priTextField, sourceTextField, destinationTextField;
+	JTextField serverAddressTextField, serverPortTextField, keepAliveTextField, deadTimerTextField, priTextField, sourceTextField, destinationTextField,bandwidthTextField,delayTextField;
 	JButton connectButton, openMessageButton, keepAliveMessageButton, requestMessageButton;
 	JCheckBox openMessagePFlagCheckBox, openMessageIFlagCheckBox, requestMessagePFlagCheckBox, requestMessageIFlagCheckBox, oFlagCheckBox, bFlagCheckBox, rFlagCheckBox, endPointsPFlag, endPointsIFlag;
 	static JTextArea messageTextArea;
@@ -71,8 +78,6 @@ public class ConnectorGUI extends JFrame implements ActionListener {
 
 		buildIntroPanel();
 		buildConnectionPanel();
-		buildOpenMessagePanel();
-		buildKeepAliveMessagePanel();
 		buildRequestMessagePanel();
 		buildTextAreaPanel();
 		buildWindowPanel();
@@ -84,19 +89,13 @@ public class ConnectorGUI extends JFrame implements ActionListener {
 	}
 
 	private void setDimensions() {
-		buttonDimension = new Dimension(95, 20);
-		labelDimension = new Dimension(100, 20);
-		textFieldDimension = new Dimension(120, 20);
-		panelDimension = new Dimension(800, 60);
+		buttonDimension = new Dimension(100, 20);
+		textFieldDimension = new Dimension(100, 20);
 	}
 
 	private void setListener() {
 		connectButton.addActionListener(this);
 		connectButton.setActionCommand("connect");
-		openMessageButton.addActionListener(this);
-		openMessageButton.setActionCommand("open");
-		keepAliveMessageButton.addActionListener(this);
-		keepAliveMessageButton.setActionCommand("keep");
 		requestMessageButton.addActionListener(this);
 		requestMessageButton.setActionCommand("request");
 	}
@@ -123,11 +122,11 @@ public class ConnectorGUI extends JFrame implements ActionListener {
 
 		JLabel serverLabel = new JLabel("Server:", SwingConstants.LEFT);
 		serverLabel.setVerticalAlignment(SwingConstants.CENTER);
-		serverLabel.setPreferredSize(labelDimension);
+		//serverLabel.setPreferredSize(labelDimension);
 
 		JLabel serverPort = new JLabel("Port:", SwingConstants.LEFT);
 		serverPort.setVerticalAlignment(SwingConstants.CENTER);
-		serverPort.setPreferredSize(labelDimension);
+		//serverPort.setPreferredSize(labelDimension);
 
 		serverAddressTextField = new JTextField(address.getIPv4Address(false));
 		serverAddressTextField.setPreferredSize(textFieldDimension);
@@ -198,6 +197,7 @@ public class ConnectorGUI extends JFrame implements ActionListener {
 		c.anchor = GridBagConstraints.FIRST_LINE_START;
 
 		openMessageButton = new JButton("Send");
+//		openMessageButton.setPreferredSize(buttonDimension);
 
 		c.gridx = 0;
 		c.gridy = 0;
@@ -234,6 +234,7 @@ public class ConnectorGUI extends JFrame implements ActionListener {
 
 
 		keepAliveMessageButton = new JButton("Send");
+//		keepAliveMessageButton.setPreferredSize(buttonDimension);
 
 		GridBagConstraints c = new GridBagConstraints();
 
@@ -253,100 +254,147 @@ public class ConnectorGUI extends JFrame implements ActionListener {
 		requestMessagePanel.setBorder(new TitledBorder("Request Message"));
 
 		JPanel piPanel = new JPanel(gridbag);
+		TitledBorder titledBorder = new TitledBorder("Common Object Header Flags");
+		piPanel.setBorder(titledBorder);
+		piPanel.setPreferredSize(new Dimension(215, 50));
+		piPanel.setMaximumSize(piPanel.getPreferredSize()); 
+		piPanel.setMinimumSize(piPanel.getPreferredSize());
+		
 		JPanel obrPriPanel = new JPanel(gridbag);
-		JPanel endPointsPiPanel = new JPanel(gridbag);
+		obrPriPanel.setBorder(new TitledBorder("RP object body Flags"));
+		obrPriPanel.setPreferredSize(new Dimension(260, 50));
+		obrPriPanel.setMaximumSize(obrPriPanel.getPreferredSize()); 
+		obrPriPanel.setMinimumSize(obrPriPanel.getPreferredSize());
+		
+//		JPanel endPointsPiPanel = new JPanel(gridbag);
 
-		//JLabel title = new JLabel("Request Message:");
-		new JLabel("Request Message:");
-		requestMessagePFlagCheckBox = new JCheckBox("", true);
+		requestMessagePFlagCheckBox = new JCheckBox("P flag", true);
 		requestMessagePFlagCheckBox.setToolTipText("p");
 
-		requestMessageIFlagCheckBox = new JCheckBox();
+		requestMessageIFlagCheckBox = new JCheckBox("I flag");
 		requestMessageIFlagCheckBox.setToolTipText("i");
 
 		piPanel.add(requestMessagePFlagCheckBox);
 		piPanel.add(requestMessageIFlagCheckBox);
 
-		oFlagCheckBox = new JCheckBox("", true);
+		oFlagCheckBox = new JCheckBox("O flag", true);
 		oFlagCheckBox.setToolTipText("o");
 
-		bFlagCheckBox = new JCheckBox();
+		bFlagCheckBox = new JCheckBox("B flag");
 		bFlagCheckBox.setToolTipText("b");
 
-		rFlagCheckBox = new JCheckBox();
+		rFlagCheckBox = new JCheckBox("R flag");
 		rFlagCheckBox.setToolTipText("r");
 
+		JLabel priLabel = new JLabel("Priority:  ", SwingConstants.LEFT);
+		priLabel.setVerticalAlignment(SwingConstants.CENTER);
 		priTextField = new JTextField("1");
-		priTextField.setPreferredSize(new Dimension(30, 20));
+		priTextField.setPreferredSize(new Dimension(20, 20));
 
 		obrPriPanel.add(oFlagCheckBox);
 		obrPriPanel.add(bFlagCheckBox);
 		obrPriPanel.add(rFlagCheckBox);
+		obrPriPanel.add(priLabel);
 		obrPriPanel.add(priTextField);
 
-		endPointsPFlag = new JCheckBox("", true);
-		endPointsPFlag.setToolTipText("p");
-
-		endPointsIFlag = new JCheckBox();
-		endPointsIFlag.setToolTipText("i");
-
-		endPointsPiPanel.add(endPointsPFlag);
-		endPointsPiPanel.add(endPointsIFlag);
-
-		requestMessageIFlagCheckBox = new JCheckBox();
-		requestMessageIFlagCheckBox.setToolTipText("i");
-
+		JPanel qosPanel = new JPanel(gridbag);
+		qosPanel.setBorder(new TitledBorder("QoS constraints"));
+		qosPanel.setPreferredSize(new Dimension(280, 50));
+		qosPanel.setMaximumSize(qosPanel.getPreferredSize()); 
+		qosPanel.setMinimumSize(qosPanel.getPreferredSize());
+		
+		JLabel bandwidthLabel = new JLabel("Bandwidth (Gbps): ", SwingConstants.LEFT);
+		bandwidthLabel.setVerticalAlignment(SwingConstants.CENTER);
+		bandwidthTextField = new JTextField("1");
+		bandwidthTextField.setPreferredSize(new Dimension(40, 20));
+		
+		JLabel delayLabel = new JLabel("   Delay (ms): ", SwingConstants.LEFT);
+		delayLabel.setVerticalAlignment(SwingConstants.CENTER);
+		delayTextField = new JTextField("20");
+		delayTextField.setPreferredSize(new Dimension(30, 20));
+		
+		qosPanel.add(bandwidthLabel);
+		qosPanel.add(bandwidthTextField);
+		qosPanel.add(delayLabel);
+		qosPanel.add(delayTextField);
+		
+		
+		JPanel srcPanel = new JPanel(gridbag);
+		srcPanel.setPreferredSize(new Dimension(215, 20));
+		srcPanel.setMaximumSize(srcPanel.getPreferredSize()); 
+		srcPanel.setMinimumSize(srcPanel.getPreferredSize());
+		
+		JLabel srcLabel = new JLabel("Source IP address:  ", SwingConstants.LEFT);
+		srcLabel.setVerticalAlignment(SwingConstants.CENTER);
 		sourceTextField = new JTextField(sourceAddress.getIPv4Address(false));
 		sourceTextField.setPreferredSize(textFieldDimension);
+		
+		srcPanel.add(srcLabel);
+		srcPanel.add(sourceTextField);
 
+		JPanel dstPanel = new JPanel(gridbag);
+		dstPanel.setPreferredSize(new Dimension(260, 20));
+		dstPanel.setMaximumSize(dstPanel.getPreferredSize()); 
+		dstPanel.setMinimumSize(dstPanel.getPreferredSize());
+		JLabel dstLabel = new JLabel("Destination IP address:  ", SwingConstants.LEFT);
+		dstLabel.setVerticalAlignment(SwingConstants.CENTER);
 		destinationTextField = new JTextField(destAddress.getIPv4Address(false));
 		destinationTextField.setPreferredSize(textFieldDimension);
+		dstPanel.add(dstLabel);
+		dstPanel.add(destinationTextField);
 
 		requestMessageButton = new JButton("Send");
+		requestMessageButton.setPreferredSize(buttonDimension);
+		
 
 		GridBagConstraints c = new GridBagConstraints();
-		c.insets = new Insets(3, 5, 3, 5);
+		c.insets = new Insets(5, 5, 5, 5);
 		c.anchor = GridBagConstraints.FIRST_LINE_START;
 
 		c.gridx = 0;
 		c.gridy = 0;
 		gridbag.setConstraints(piPanel, c);
 		this.requestMessagePanel.add(piPanel);
-
+		
 		c.gridx = 1;
 		c.gridy = 0;
 		gridbag.setConstraints(obrPriPanel, c);
 		this.requestMessagePanel.add(obrPriPanel);
-
+		
 		c.gridx = 2;
 		c.gridy = 0;
-		gridbag.setConstraints(endPointsPiPanel, c);
-		this.requestMessagePanel.add(endPointsPiPanel);
+		gridbag.setConstraints(qosPanel, c);
+		this.requestMessagePanel.add(qosPanel);
+		
+		c.gridx = 0;
+		c.gridy = 1;
+		gridbag.setConstraints(srcPanel, c);
+		this.requestMessagePanel.add(srcPanel);
+		
+		c.gridx = 1;
+		c.gridy = 1;
+		gridbag.setConstraints(dstPanel, c);
+		this.requestMessagePanel.add(dstPanel);
 
-		c.gridx = 3;
-		c.gridy = 0;
-		gridbag.setConstraints(sourceTextField, c);
-		this.requestMessagePanel.add(sourceTextField);
-
-		c.gridx = 4;
-		c.gridy = 0;
-		gridbag.setConstraints(destinationTextField, c);
-		this.requestMessagePanel.add(destinationTextField);
-
-		c.gridx = 5;
-		c.gridy = 0;
+		c.gridx = 2;
+		c.gridy = 1;
 		gridbag.setConstraints(requestMessageButton, c);
 		this.requestMessagePanel.add(requestMessageButton);
 
 	}
+	
+	
 
 	private void buildTextAreaPanel() {
 
-		messageTextArea = new JTextArea(30, 100); // 20,83
+		messageTextArea = new JTextArea(30, 120); // 20,83
 		messageTextArea.setEditable(false);
 		messageTextArea.setFont(new Font("Monospaced", Font.TRUETYPE_FONT, 11));
 		scrollPane = new JScrollPane(messageTextArea);
-
+		
+		DefaultCaret caret = (DefaultCaret)messageTextArea.getCaret();  
+		caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);  
+		
 		textAreaPanel = new JPanel(gridbag);
 
 		GridBagConstraints c = new GridBagConstraints();
@@ -420,6 +468,8 @@ public class ConnectorGUI extends JFrame implements ActionListener {
 		String bFlag = booleanToStringConverter(bFlagCheckBox.isSelected());
 		String rFlag = booleanToStringConverter(rFlagCheckBox.isSelected());
 		String priFlag = priTextField.getText();
+		Float bandwidth = Float.valueOf(bandwidthTextField.getText());
+		Float delay = Float.valueOf(delayTextField.getText());
 
 		// EndPoints Information
 		String endPointsPFlag = booleanToStringConverter(false);
@@ -430,11 +480,13 @@ public class ConnectorGUI extends JFrame implements ActionListener {
 
 		PCEPRequestParametersObject RP = PCEPObjectFrameFactory.generatePCEPRequestParametersObject(pFlag, iFlag, oFlag, bFlag, rFlag, priFlag, "432");
 		PCEPEndPointsObject endPoints = PCEPObjectFrameFactory.generatePCEPEndPointsObject(endPointsPFlag, endPointsIFlag, sourceAddress, destinationAddress);
-
+		PCEPBandwidthObject bandwidthObject = PCEPObjectFrameFactory.generatePCEPBandwidthObject(pFlag, iFlag, bandwidth);
+		PCEPMetricObject metricObject = PCEPObjectFrameFactory.generatePCEPMetricObject(pFlag, iFlag, "1", "1", 2, delay);
+		
 		// Address destAddress = new Address(serverAddressTextField.getText());
 		PCEPAddress destAddress = new PCEPAddress(serverAddressTextField.getText(), Integer.parseInt(serverPortTextField.getText()));
 
-		PCEPRequestFrame requestMessage = PCEPRequestFrameFactory.generatePathComputationRequestFrame(RP, endPoints);
+		PCEPRequestFrame requestMessage = PCEPRequestFrameFactory.generatePathComputationRequestFrame(RP, endPoints, bandwidthObject, metricObject);
 		PCEPMessage message = PCEPMessageFactory.generateMessage(requestMessage);
 
 		message.setAddress(destAddress);
@@ -445,6 +497,7 @@ public class ConnectorGUI extends JFrame implements ActionListener {
 	}
 
 	public void actionPerformed(ActionEvent event) {
+		
 		try {
 			if (event.getActionCommand().equals("connect")) {
 				localDebugger("Connection Event Triggered");
@@ -452,6 +505,8 @@ public class ConnectorGUI extends JFrame implements ActionListener {
 			}
 			if (event.getActionCommand().equals("request")) {
 				localLogger("Request Event triggered");
+				
+				timeStart = System.currentTimeMillis();
 				requestMessage();
 			}
 
@@ -461,6 +516,7 @@ public class ConnectorGUI extends JFrame implements ActionListener {
 			e.printStackTrace();
 		}
 	}
+	
 
 	private String booleanToStringConverter(boolean value) {
 		if (value == true) {
@@ -487,7 +543,7 @@ public class ConnectorGUI extends JFrame implements ActionListener {
 		updateTextArea("  *--@@@@@@@@----***********@@@@@@@@@@@@@@@@-----***********------------@@@@@@@@@  ");
 		updateTextArea("  -@@@@@@@@@----***********@@@@@@@@@@@@@-------***********--------------@@@@@@@@@  ");
 		updateTextArea("  -------------------------------------------------------------------------------  ");
-		updateTextArea("  -------------- Institut fÃ¼r Datentechnik und Kommunikationsnetze --------------  ");
+		updateTextArea("  -------------- Institut für Datentechnik und Kommunikationsnetze --------------  ");
 		updateTextArea("  -------------------------------------------------------------------------------  ");
 	}
 
@@ -497,6 +553,10 @@ public class ConnectorGUI extends JFrame implements ActionListener {
 
 	public static void updateTextArea(String text) {
 		messageTextArea.append("\n" + text);
+		
+//		long time = (System.currentTimeMillis() - timeStart);
+//		String ls = System.getProperty("line.separator");
+//		System.out.println(ls + ls + "The task has taken " + time + " miliseconds");
 	}
 
 	private void guiLogger(String event) {

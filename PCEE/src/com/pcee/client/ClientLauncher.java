@@ -29,7 +29,7 @@ import com.pcee.logger.gui.GUILogObject;
  */
 public class ClientLauncher {
 	
-	public static ModuleManagement lm = new ModuleManagement(false);
+	public static ModuleManagement lm = new ModuleManagement(false, false, 0);
 	
 	/**Launch point to initialize the client GUI*/
 	public static void main(String[] args) throws Exception {

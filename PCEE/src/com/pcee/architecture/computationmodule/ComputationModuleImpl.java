@@ -23,6 +23,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import com.pcee.architecture.ModuleEnum;
 import com.pcee.architecture.ModuleManagement;
+import com.pcee.architecture.computationmodule.gurobi.GurobiThreadPool;
 import com.pcee.architecture.computationmodule.ted.TopologyInformation;
 import com.pcee.architecture.computationmodule.threadpool.ThreadPool;
 import com.pcee.logger.Logger;
@@ -54,6 +55,14 @@ public class ComputationModuleImpl extends ComputationModule {
 	//HashMap for keeping track of requests made to remote peers and the associated worker tasks
 	private HashMap <String, LinkedBlockingQueue<PCEPMessage>> remotePeerResponseAssociationHashMap;
 	
+	//Boolean to use GUROBI
+	private boolean isGurobi = false;
+		
+	// Thread Implementation to compute incoming requests using GUROBI
+	private GurobiThreadPool gurobiThreadPool;
+		
+	private int numberOfrequests;
+	
 	/**
 	 * Default Constructor
 	 * 
@@ -71,22 +80,38 @@ public class ComputationModuleImpl extends ComputationModule {
 		this.computationThreads = computationThreads;
 		start();
 	}
+	
+	public ComputationModuleImpl(ModuleManagement layerManagement,
+			boolean isGurobi, int numberOfrequests) {
+		lm = layerManagement;
+		this.computationThreads = 1;
+		this.isGurobi = isGurobi;
+		this.numberOfrequests = numberOfrequests;
+		start();
+	}
 
 	public void stop() {
-		threadPool.stop();
+		if(!isGurobi)
+			threadPool.stop();
+		else
+			gurobiThreadPool.stop();
 		requestQueue.clear();
 	}
 
 	public void start() {
 		//Initialize the topology to import the definition from file and start the thread to listen for topology updates
-		TopologyInformation.getInstance();
+		TopologyInformation.getInstance(isGurobi);
 		
 		//Innitialize the map that will record the responses coming from remote peers
 		remotePeerResponseAssociationHashMap = new HashMap<String, LinkedBlockingQueue<PCEPMessage>>();
 		// Initialize a new request Queue
 		requestQueue = new LinkedBlockingQueue<PCEPMessage>();
-		// Initialize the thread pool used for computing requests
-		threadPool = new ThreadPool(lm, computationThreads, requestQueue);
+		if(!isGurobi)
+			// Initialize the thread pool used for computing requests
+			threadPool = new ThreadPool(lm, computationThreads, requestQueue);
+		else
+			// Initialize the GUROBI thread used for computing requests
+			gurobiThreadPool = new GurobiThreadPool(lm, requestQueue, numberOfrequests);
 	}
 
 	public void closeConnection(PCEPAddress address) {

@@ -31,6 +31,9 @@ public class SimplePathComputationConstraint extends Constraint{
 	/**variable to store the bandwidth requested*/
 	private double bw;
 	
+	/**variable to store the maximum delay requested*/
+	private double delay;
+	
 	/**Function to get the source of the requested path*/
 	public VertexElement getSource(){
 		return this.source;
@@ -61,9 +64,29 @@ public class SimplePathComputationConstraint extends Constraint{
 		this.bw=bw;
 	}
 
+	public SimplePathComputationConstraint(VertexElement source,
+			VertexElement destination, double bw,
+			double delay) {
+		if (source==null){
+			GraphLogger.logError("null source", classIdentifier);
+		}
+		if (destination==null){
+			GraphLogger.logError("null destination", classIdentifier);
+		}
+		this.source = source;
+		this.destination = destination;
+		this.bw=bw;
+		this.delay = delay;
+	}
+
 	/**Function to get the bandwidth requested on the path*/
 	public double getBw() {
 		return this.bw;
+	}
+	
+	/**Function to get the bandwidth requested on the path*/
+	public double getMaxDelay() {
+		return this.delay;
 	}
 	
 }

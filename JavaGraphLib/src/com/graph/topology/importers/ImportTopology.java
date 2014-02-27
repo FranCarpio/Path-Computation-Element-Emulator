@@ -26,4 +26,9 @@ public abstract class ImportTopology {
 
 	public abstract void importTopologyFromString (Gcontroller graph, String[] topology);
 
+	public void importTopologyForGurobi(Gcontroller graph, String filename) {
+		// TODO Auto-generated method stub
+		
+	}
+
 }

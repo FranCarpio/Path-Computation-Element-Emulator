@@ -17,21 +17,16 @@
 
 package com.pcee.server;
 
-import com.pcee.architecture.ModuleManagement;
-
-/**Example class to demonstrate the launch of the PCE Server
+/**
+ * Example class to demonstrate the launch of the PCE Server
  * 
  * @author Mohit Chamania
- *
+ * 
  */
 public class ServerLauncher {
 
-	/**Launch Point of the PCEE Server*/
+	/** Launch Point of the PCEE Server */
 	public static void main(String[] args) {
-		if(args.length == 0){
-			new ModuleManagement(true);
-		}else{
-			new ModuleManagement(true, args[0]);
-		}
+		new ServerSelectorGUI();
 	}
 }

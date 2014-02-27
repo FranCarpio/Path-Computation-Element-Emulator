@@ -132,4 +132,8 @@ public abstract class PathElement {
 	public abstract boolean releaseBandwidth(double bw);
 
 	public abstract void setEdgeSequence(ArrayList<EdgeElement> edges);
+	
+	public abstract boolean isLinktraversed(EdgeElement edge);
+	
+	public abstract boolean isConnected(VertexElement s, VertexElement d);
 }

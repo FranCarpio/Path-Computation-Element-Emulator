@@ -83,7 +83,7 @@ public class Worker extends Thread {
 			//Flag to check if thread was interrupted during a wait operation or during a computation 
 			flag=1;
 			if (request!=null){
-				task = new WorkerTask(lm, request, TopologyInformation.getInstance().getGraph().createCopy());
+				task = new WorkerTask(lm, request, TopologyInformation.getInstance(false).getGraph().createCopy());
 				task.run();
 //				localLogger("Completed processing of request ID " + request.getRequestID());
 			}

@@ -43,14 +43,19 @@ public class ModuleManagement {
 	boolean running = false;
 	boolean isServer = false;
 
-	public ModuleManagement(boolean isServer) {
+	public ModuleManagement(boolean isServer, boolean isGurobi,
+			int numberRequest) {
 		if (running == false) {
 
 			this.isServer = isServer;
 			networkModule = new NetworkModuleImpl(isServer, this); // FIXME
 			sessionModule = new SessionModuleImpl(this);
 			if (isServer == true) {
-				computationModule = new ComputationModuleImpl(this);
+				if (!isGurobi)
+					computationModule = new ComputationModuleImpl(this);
+				else
+					computationModule = new ComputationModuleImpl(this,
+							isGurobi, numberRequest);
 				clientModule = new ClientModuleImpl(this);
 			} else {
 				clientModule = new ClientModuleImpl(this);
@@ -92,7 +97,8 @@ public class ModuleManagement {
 						.getProperty("computationThreads"));
 				TopologyInformation.setTopoPath(reader.getProperty("topology"));
 				TopologyInformation.setImporter(reader.getProperty("importer"));
-				TopologyInformation.setTopologyUpdatePort(Integer.parseInt(reader.getProperty("topologyUpdatePort")));
+				TopologyInformation.setTopologyUpdatePort(Integer
+						.parseInt(reader.getProperty("topologyUpdatePort")));
 			} catch (Exception e) {
 				System.out.println("Wrong Configuration Inputs!");
 				System.exit(0);
