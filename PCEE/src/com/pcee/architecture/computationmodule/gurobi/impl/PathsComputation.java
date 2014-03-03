@@ -32,7 +32,29 @@ import com.graph.path.pathelementimpl.PathElementImpl;
  */
 public class PathsComputation {
 
-	public List<PathElement> allPaths(Gcontroller graph, int extraLenght) {
+	protected List<PathElement> setOfPaths;
+
+	public PathsComputation(Gcontroller graph, int extraLenght) {
+
+		setOfPaths = computeAllPaths(graph, extraLenght);
+	}
+
+	public List<PathElement> getPathsFromStoD(VertexElement n, VertexElement m,
+			double maxDelay) {
+
+		List<PathElement> selectedPaths = new ArrayList<PathElement>();
+
+		for (PathElement p : setOfPaths) {
+			if (p.getSource().getVertexID().equals(n.getVertexID())
+					&& p.getDestination().getVertexID()
+							.equals((m.getVertexID())))
+				if (p.getPathParams().getPathDelay() < maxDelay)
+					selectedPaths.add(p);
+		}
+		return selectedPaths;
+	}
+
+	public List<PathElement> computeAllPaths(Gcontroller graph, int extraLenght) {
 
 		int minimumLenght;
 		List<PathElement> setOfPaths = new ArrayList<PathElement>();
@@ -64,7 +86,7 @@ public class PathsComputation {
 		return setOfPaths;
 	}
 
-	public List<PathElement> allPathsFromStoD(Gcontroller graph,
+	public List<PathElement> computePathsFromStoD(Gcontroller graph,
 			int extraLenght, VertexElement n, VertexElement m) {
 
 		List<PathElement> setOfPaths = new ArrayList<PathElement>();

@@ -17,9 +17,12 @@
 
 package com.pcee.architecture.computationmodule.gurobi;
 
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.concurrent.LinkedBlockingQueue;
 import com.graph.graphcontroller.Gcontroller;
 import com.pcee.architecture.ModuleManagement;
+import com.pcee.architecture.computationmodule.gurobi.impl.PathsComputation;
 import com.pcee.architecture.computationmodule.ted.TopologyInformation;
 import com.pcee.logger.Logger;
 import com.pcee.protocol.message.PCEPMessage;
@@ -30,12 +33,17 @@ import com.pcee.protocol.message.PCEPMessage;
  * 
  * @author Mohit Chamania
  * @author Marek Drogon
- * @author Fran Carpio
  */
 public class GurobiThreadPool {
 
+	// Integer to define the number of threads used
+	private int threadCount;
+
 	// boolean to check if the the thread pool has been initialized
 	private boolean isInitialized;
+
+	// Map association to store worker threads against their IDs
+	private HashMap<String, GurobiWorker> threadHashMap;
 
 	// Blocking queue used by workers to read incoming requests
 	private LinkedBlockingQueue<PCEPMessage> requestQueue;
@@ -48,10 +56,9 @@ public class GurobiThreadPool {
 
 	// TopologyInformation used to retrieve topology information from file
 	private static TopologyInformation topologyInstance = TopologyInformation
-			.getInstance(true);
+			.getInstance(false);
 
-	// Thread instance
-	GurobiWorker thread;
+	PathsComputation pathsComputation;
 
 	// Integer to set up the maximum number of request in the buffer before the
 	// Gurobi optimization.
@@ -61,31 +68,41 @@ public class GurobiThreadPool {
 	 * default Constructor
 	 * 
 	 * @param layerManagement
+	 * @param threadCount
 	 * @param requestQueue
-	 * @param numberOfRequests
 	 */
-	public GurobiThreadPool(ModuleManagement layerManagement,
+	public GurobiThreadPool(ModuleManagement layerManagement, int threadCount,
 			LinkedBlockingQueue<PCEPMessage> requestQueue, int numberOfRequests) {
 		lm = layerManagement;
+		this.threadCount = threadCount;
 		isInitialized = false;
 		this.requestQueue = requestQueue;
 		graph = topologyInstance.getGraph();
 		this.numberOfRequests = numberOfRequests;
-		initThread();
+		pathsComputation = new PathsComputation(graph, 2);
+		initThreadPool();
 	}
 
 	/**
-	 * Function to initialize the thread
+	 * Function to initialize the thread pool
 	 * 
 	 * @return
 	 */
-	private boolean initThread() {
-		localLogger("Initializing GUROBI thread");
+	private boolean initThreadPool() {
+		localLogger("Initializing Thread Pool, size = " + threadCount);
 		if (isInitialized == false) {
-			thread = new GurobiWorker(lm, requestQueue, graph, numberOfRequests);
-			thread.start();
-			localLogger("Worker Thread initialized");
+			threadHashMap = new HashMap<String, GurobiWorker>();
+			for (int i = 0; i < threadCount; i++) {
+				String id = "Thread-" + Integer.toString(i);
+				GurobiWorker worker = new GurobiWorker(lm, this, id,
+						requestQueue, graph, numberOfRequests, pathsComputation);
+				worker.setName("WorkerThread-" + i);
+				threadHashMap.put(id, worker);
+				worker.start();
+				localLogger("Worker Thread " + i + " initialized");
+			}
 			isInitialized = true;
+			localDebugger("Thread Pool Initialized");
 			return true;
 		} else
 			return false;
@@ -100,19 +117,33 @@ public class GurobiThreadPool {
 		return topologyInstance.getGraph();
 	}
 
-	/** Function to stop the thread */
+	/** Function to stop the thread pool */
 	public void stop() {
-		thread.setTerminate(true);
-		thread.interrupt();
+		Iterator<String> iter = threadHashMap.keySet().iterator();
+		while (iter.hasNext()) {
+			String id = iter.next();
+			threadHashMap.get(id).setTerminate(true);
+			threadHashMap.get(id).interrupt();
+		}
+
 	}
 
 	/**
-	 * Function to log events inside the thread implementation
+	 * Function to log events inside the thread pool implementation
 	 * 
 	 * @param event
 	 */
 	private void localLogger(String event) {
-		Logger.logSystemEvents("[Thread]     " + event);
+		Logger.logSystemEvents("[ThreadPool]     " + event);
+	}
+
+	/**
+	 * Function to log debugging events inside the thread pool implementation
+	 * 
+	 * @param event
+	 */
+	private void localDebugger(String event) {
+		Logger.debugger("[ThreadPool]     " + event);
 	}
 
 }

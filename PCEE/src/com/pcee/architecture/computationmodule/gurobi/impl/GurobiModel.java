@@ -44,7 +44,8 @@ public class GurobiModel {
 	List<VertexElement> setOfNodes = new ArrayList<VertexElement>();
 	List<EdgeElement> setOfLinks = new ArrayList<EdgeElement>();
 
-	public void start(Gcontroller graph, List<Constraint> constraints) {
+	public void start(Gcontroller graph, List<Constraint> constraints,
+			PathsComputation pathsComputation) {
 
 		try {
 			GRBEnv env = new GRBEnv();
@@ -53,13 +54,13 @@ public class GurobiModel {
 
 			/** Parameters */
 			routing = new ArrayList<Boolean>();
+			setOfPaths = new ArrayList<PathElement>();
 			setOfNodes.addAll(graph.getVertexSet());
 			setOfLinks.addAll(graph.getEdgeSet());
 
-			PathsComputation pathsComputation = new PathsComputation();
 			for (Constraint c : constraints)
-				setOfPaths.addAll(pathsComputation.allPathsFromStoD(graph, 2,
-						c.getSource(), c.getDestination()));
+				setOfPaths.addAll(pathsComputation.getPathsFromStoD(
+						c.getSource(), c.getDestination(), c.getMaxDelay()));
 
 			/** Variables */
 
@@ -72,16 +73,6 @@ public class GurobiModel {
 						.getPathDelay(), GRB.BINARY, "R[" + p + "]");
 			}
 
-			/**
-			 * Gamma Double, Transit at link L
-			 */
-			GRBVar[] G = new GRBVar[setOfLinks.size()];
-			for (int l = 0; l < setOfLinks.size(); ++l) {
-				G[l] = model.addVar(0.0, setOfLinks.get(l).getEdgeParams()
-						.getAvailableCapacity(), 0.0, GRB.CONTINUOUS, "G[" + l
-						+ "]");
-			}
-
 			model.update();
 
 			/**
@@ -89,7 +80,7 @@ public class GurobiModel {
 			 */
 
 			/**
-			 * (2) sum_p Rp*travp(l) * lambdaSD * conn_p (s,d) = G[l]
+			 * (2) sum_p Rp*travp(l) * lambdaSD * conn_p (s,d) <= C_l
 			 */
 			for (int l = 0; l < setOfLinks.size(); ++l) {
 				expr = new GRBLinExpr();
@@ -119,30 +110,12 @@ public class GurobiModel {
 					}
 				}
 
-				model.addConstr(expr, GRB.EQUAL, G[l], "Constraint 2");
+				model.addConstr(expr, GRB.LESS_EQUAL, setOfLinks.get(l)
+						.getEdgeParams().getAvailableCapacity(), "Constraint 2");
 			}
 
 			/**
-			 * (4.1) sum_p [Rp * connp(s,d)] <= 1
-			 */
-			for (int s = 0; s < setOfNodes.size(); s++) {
-				VertexElement source = setOfNodes.get(s);
-				for (int d = 0; d < setOfNodes.size(); d++) {
-					VertexElement destination = setOfNodes.get(d);
-					if (setOfNodes.get(s).equals(setOfNodes.get(d)))
-						continue;
-					expr = new GRBLinExpr();
-					for (int p = 0; p < setOfPaths.size(); p++) {
-						if (setOfPaths.get(p).isConnected(source, destination)) {
-							expr.addTerm(1.0, R[p]);
-						}
-					}
-					model.addConstr(expr, GRB.LESS_EQUAL, 1, "Constraint 4.1");
-				}
-			}
-
-			/**
-			 * (4.2) lamda_sd/Max <= sum_p [Rp * connp(s,d)]
+			 * (3) lamda_sd/Max <= sum_p [Rp * connp(s,d)]
 			 */
 
 			for (Constraint c : constraints) {
@@ -155,24 +128,7 @@ public class GurobiModel {
 				}
 				double constant = c.getBw() * 0.01;
 				model.addConstr(expr, GRB.GREATER_EQUAL, constant,
-						"Constraint 4.2");
-			}
-
-			/**
-			 * (5) Rp * conn_p(s,d) * TAU_p <= TAU_s,d
-			 */
-
-			for (Constraint c : constraints) {
-				expr = new GRBLinExpr();
-				for (int p = 0; p < setOfPaths.size(); ++p) {
-					if (!setOfPaths.get(p).isConnected(c.getSource(),
-							c.getDestination()))
-						continue;
-					expr.addTerm(setOfPaths.get(p).getPathParams()
-							.getPathDelay(), R[p]);
-				}
-				model.addConstr(expr, GRB.LESS_EQUAL, c.getMaxDelay(),
-						"Constraint 5");
+						"Constraint 4");
 			}
 
 			model.optimize();

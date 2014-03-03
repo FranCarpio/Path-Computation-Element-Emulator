@@ -17,19 +17,25 @@
 
 package com.pcee.architecture.computationmodule.gurobi;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import com.graph.graphcontroller.Gcontroller;
 import com.pcee.architecture.ModuleManagement;
+import com.pcee.architecture.computationmodule.gurobi.impl.PathsComputation;
 import com.pcee.architecture.computationmodule.ted.TopologyInformation;
+import com.pcee.logger.Logger;
 import com.pcee.protocol.message.PCEPMessage;
 
 public class GurobiWorker extends Thread {
 
+	private String ID;
 	private LinkedBlockingQueue<PCEPMessage> requestQueue;
 	private ModuleManagement lm;
 	private boolean terminateWorker = false;
-	private int numberOfRequests;
+	PathsComputation pathsComputation;
+	int numberOfRequest;
 
 	/**
 	 * Function to set the flag to terminate the worker thread
@@ -50,27 +56,83 @@ public class GurobiWorker extends Thread {
 	 * @param graph
 	 */
 	public GurobiWorker(ModuleManagement layerManagement,
+			GurobiThreadPool pool, String ID,
 			LinkedBlockingQueue<PCEPMessage> requestQueue, Gcontroller graph,
-			int numberOfRequests) {
+			int numberOfRequest, PathsComputation pathsComputation) {
 		lm = layerManagement;
+		this.ID = ID;
 		this.requestQueue = requestQueue;
-		this.numberOfRequests = numberOfRequests;
+		this.pathsComputation = pathsComputation;
+		this.numberOfRequest = numberOfRequest;
 	}
 
+	/** Main run method of the worker thread */
 	public void run() {
+
+		localLogger("Initializing Worker Thread ID = " + ID);
+		List<PCEPMessage> requestList;
+		int flag = 0;
 		while (!terminateWorker) {
-
-			GurobiTask task = new GurobiTask(lm, requestQueue,
-					TopologyInformation.getInstance(true).getGraph()
-							.createCopy(), numberOfRequests);
-			task.run();
-
-			if (Thread.currentThread().isInterrupted()) {
+			GurobiWorkerTask task = null;
+			requestList = new ArrayList<PCEPMessage>();
+			try {
+				if (flag == 0) {
+					for (int i = 0; i < numberOfRequest; i++) {
+						requestList.add(requestQueue.take());
+						// Record the leaving Queue Time for each request
+						// localLogger("Starting request ID " +
+						// request.getRequestID());
+						localLogger("Current Length of Request Queue = "
+								+ requestQueue.size());
+					}
+				}
+			} catch (InterruptedException e) {
 				if (terminateWorker) {
+					localDebugger("Stopping Worker Thread : " + ID);
 					break;
 				}
 				continue;
 			}
+			// Flag to check if thread was interrupted during a wait operation
+			// or during a computation
+			flag = 1;
+			if (requestList != null) {
+				task = new GurobiWorkerTask(lm, requestList,
+						TopologyInformation.getInstance(false).getGraph()
+								.createCopy(), pathsComputation);
+				task.run();
+				// localLogger("Completed processing of request ID " +
+				// request.getRequestID());
+			}
+			if (Thread.currentThread().isInterrupted()) {
+				if (terminateWorker) {
+					localDebugger("Stopping Worker Thread : " + ID);
+					break;
+				}
+				continue;
+			}
+			// The request was computed successfully, and the flag variable is
+			// set to indicate
+			// that a new request be processed in the next iteration
+			flag = 0;
 		}
+	}
+
+	/**
+	 * Function to log events in the worker thread
+	 * 
+	 * @param event
+	 */
+	private void localLogger(String event) {
+		Logger.logSystemEvents("[Worker " + ID + "]     " + event);
+	}
+
+	/**
+	 * Function to log debugging events
+	 * 
+	 * @param event
+	 */
+	private void localDebugger(String event) {
+		Logger.debugger("[Worker " + ID + "]     " + event);
 	}
 }

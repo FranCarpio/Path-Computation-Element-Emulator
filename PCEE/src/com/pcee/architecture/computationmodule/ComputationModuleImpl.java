@@ -84,7 +84,11 @@ public class ComputationModuleImpl extends ComputationModule {
 	public ComputationModuleImpl(ModuleManagement layerManagement,
 			boolean isGurobi, int numberOfrequests) {
 		lm = layerManagement;
-		this.computationThreads = 1;
+		if(numberOfrequests==1)
+			this.computationThreads = 5;
+		else
+			this.computationThreads = 1;
+		
 		this.isGurobi = isGurobi;
 		this.numberOfrequests = numberOfrequests;
 		start();
@@ -111,7 +115,7 @@ public class ComputationModuleImpl extends ComputationModule {
 			threadPool = new ThreadPool(lm, computationThreads, requestQueue);
 		else
 			// Initialize the GUROBI thread used for computing requests
-			gurobiThreadPool = new GurobiThreadPool(lm, requestQueue, numberOfrequests);
+			gurobiThreadPool = new GurobiThreadPool(lm, computationThreads ,requestQueue, numberOfrequests);
 	}
 
 	public void closeConnection(PCEPAddress address) {

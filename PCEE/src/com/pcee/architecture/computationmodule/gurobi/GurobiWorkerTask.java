@@ -19,7 +19,6 @@ package com.pcee.architecture.computationmodule.gurobi;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.LinkedBlockingQueue;
 
 import com.graph.elements.vertex.VertexElement;
 import com.graph.graphcontroller.Gcontroller;
@@ -29,6 +28,7 @@ import com.graph.path.algorithms.constraints.impl.SimplePathComputationConstrain
 import com.pcee.architecture.ModuleEnum;
 import com.pcee.architecture.ModuleManagement;
 import com.pcee.architecture.computationmodule.gurobi.impl.GurobiModel;
+import com.pcee.architecture.computationmodule.gurobi.impl.PathsComputation;
 import com.pcee.logger.Logger;
 import com.pcee.protocol.message.PCEPMessage;
 import com.pcee.protocol.message.PCEPMessageFactory;
@@ -45,32 +45,31 @@ import com.pcee.protocol.response.PCEPResponseFrame;
 import com.pcee.protocol.response.PCEPResponseFrameFactory;
 
 /**
- * Runnable class used to process path computation requests with Gurobi model
+ * Runnable class used by the thread pool to process path computation requests
  * 
  * @author Mohit Chamania
  * @author Marek Drogon
- * @author Fran Carpio
  */
-public class GurobiTask implements Runnable {
-
+public class GurobiWorkerTask implements Runnable {
+	// Request to be processed
+	private List<PCEPMessage> requestList;
 	// Graph used for computation of the request
 	private Gcontroller graph;
 	// Module management object to send the response to the session layer
 	private ModuleManagement lm;
 
-	private int numberOfRequests;
-
-	LinkedBlockingQueue<PCEPMessage> requestQueue;
+	PathsComputation pathsComputation;
 
 	List<Constraint> constraintsList;
 
-	public GurobiTask(ModuleManagement layerManagement,
-			LinkedBlockingQueue<PCEPMessage> requestQueue, Gcontroller graph,
-			int numberOfRequests) {
+	/** Default Constructor */
+	public GurobiWorkerTask(ModuleManagement layerManagement,
+			List<PCEPMessage> requestList, Gcontroller graph,
+			PathsComputation pathsComputation) {
 		lm = layerManagement;
-		this.requestQueue = requestQueue;
+		this.requestList = requestList;
 		this.graph = graph;
-		this.numberOfRequests = numberOfRequests;
+		this.pathsComputation = pathsComputation;
 	}
 
 	/** Function to update the graph instance used for computation */
@@ -81,29 +80,22 @@ public class GurobiTask implements Runnable {
 	/** Function to implement the path computation operations */
 	public void run() {
 		List<PCEPRequestFrame> requestFrameList = new ArrayList<PCEPRequestFrame>();
-		List<PCEPMessage> requestList = new ArrayList<PCEPMessage>();
 		constraintsList = new ArrayList<Constraint>();
 
-		for (int i = 0; i < numberOfRequests; i++) {
-			try {
-				PCEPMessage request = requestQueue.take();
-
-				requestList.add(request);
-				PCEPRequestFrame requestFrame = PCEPRequestFrameFactory
-						.getPathComputationRequestFrame(request);
-				requestFrameList.add(requestFrame);
-				localLogger("Starting Processing of Request: "
-						+ requestFrame.getRequestID());
-				setConstraint(requestFrame, request);
-				localLogger("Completed Processing of Request: "
-						+ requestFrame.getRequestID());
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+		for (int i = 0; i < requestList.size(); i++) {
+			PCEPMessage request = requestList.get(i);
+			PCEPRequestFrame requestFrame = PCEPRequestFrameFactory
+					.getPathComputationRequestFrame(request);
+			requestFrameList.add(requestFrame);
+			localLogger("Starting Processing of Request: "
+					+ requestFrame.getRequestID());
+			setConstraint(requestFrame, request);
+			localLogger("Completed Processing of Request: "
+					+ requestFrame.getRequestID());
 		}
+
 		GurobiModel gurobiModel = new GurobiModel();
-		gurobiModel.start(graph, constraintsList);
+		gurobiModel.start(graph, constraintsList, pathsComputation);
 
 		int count = 0;
 		for (PCEPRequestFrame request : requestFrameList) {
@@ -250,6 +242,6 @@ public class GurobiTask implements Runnable {
 	 * @param event
 	 */
 	private void localLogger(String event) {
-		Logger.logSystemEvents("[GurobiTask]     " + event);
+		Logger.logSystemEvents("[WorkerTask]     " + event);
 	}
 }
